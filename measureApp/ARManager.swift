@@ -20,6 +20,10 @@ class ARManager: ObservableObject {
     private var captureTimer: Timer?
     private let captureInterval: TimeInterval = 0.1 // Capture every 0.1 seconds (10 FPS)
     
+    private var documentsPath: URL {
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+    
     func startContinuousCapture() {
         guard !isContinuousCapture else { return }
         
@@ -39,7 +43,13 @@ class ARManager: ObservableObject {
         isContinuousCapture = false
         captureTimer?.invalidate()
         captureTimer = nil
-        captureStatus = "Stopped. Saved \(captureCount) frames to Documents folder"
+        
+        let path = documentsPath.path
+        captureStatus = "Saved \(captureCount) frames\nPath: \(path)\n\nCheck Xcode console for details"
+        print("========================================")
+        print("File save location: \(path)")
+        print("Saved \(captureCount) frames")
+        print("========================================")
     }
     
     private func captureCurrentFrame() {
@@ -149,7 +159,6 @@ class ARManager: ObservableObject {
     }
     
     private func saveRGBImageToFile(rgbImage: UIImage, frameNumber: Int) -> Bool {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let timestamp = Int(Date().timeIntervalSince1970 * 1000) // Use milliseconds for better precision
         let fileName = "rgb_image_\(frameNumber)_\(timestamp).png"
         let fileURL = documentsPath.appendingPathComponent(fileName)
@@ -171,7 +180,6 @@ class ARManager: ObservableObject {
     }
     
     private func saveDepthDataToFile(depthData: [Float], width: Int, height: Int, frameNumber: Int) -> Bool {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let timestamp = Int(Date().timeIntervalSince1970 * 1000) // Use milliseconds for better precision
         let fileName = "depth_data_\(frameNumber)_\(timestamp).csv"
         let fileURL = documentsPath.appendingPathComponent(fileName)
