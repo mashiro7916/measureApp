@@ -22,15 +22,43 @@ struct ContentView: View {
                 
                 // Status display
                 if !arManager.captureStatus.isEmpty {
-                    Text(arManager.captureStatus)
-                        .padding()
-                        .background(Color.black.opacity(0.7))
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        .padding(.bottom, 10)
+                    VStack(spacing: 4) {
+                        Text(arManager.captureStatus)
+                        if arManager.isContinuousCapture {
+                            Text("Frame count: \(arManager.captureCount)")
+                                .font(.caption)
+                        }
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.7))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.bottom, 10)
                 }
                 
-                // Capture button
+                // Continuous capture button
+                Button(action: {
+                    if arManager.isContinuousCapture {
+                        arManager.stopContinuousCapture()
+                    } else {
+                        arManager.startContinuousCapture()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: arManager.isContinuousCapture ? "stop.circle.fill" : "play.circle.fill")
+                        Text(arManager.isContinuousCapture ? "Stop Continuous Capture" : "Start Continuous Capture")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(arManager.isContinuousCapture ? Color.red : Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                
+                // Single capture button
                 Button(action: {
                     arManager.captureRGBAndDepth()
                 }) {
@@ -42,7 +70,7 @@ struct ContentView: View {
                         } else {
                             Image(systemName: "camera.fill")
                         }
-                        Text(arManager.isCapturing ? "Capturing..." : "Capture RGB and Depth")
+                        Text(arManager.isCapturing ? "Capturing..." : "Capture Single Frame")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
@@ -51,7 +79,7 @@ struct ContentView: View {
                     .foregroundColor(.white)
                     .cornerRadius(15)
                 }
-                .disabled(arManager.isCapturing)
+                .disabled(arManager.isCapturing || arManager.isContinuousCapture)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }

@@ -13,19 +13,66 @@ import Photos
 
 class ARManager: ObservableObject {
     @Published var isCapturing = false
+    @Published var isContinuousCapture = false
     @Published var captureStatus = ""
+    @Published var captureCount = 0
     
     var arView: ARView?
     var currentFrame: ARFrame?
+    private var captureTimer: Timer?
+    private let captureInterval: TimeInterval = 0.1 // Capture every 0.1 seconds (10 FPS)
+    private var hasPhotoLibraryPermission = false
+    
+    func startContinuousCapture() {
+        guard !isContinuousCapture else { return }
+        
+        // Check photo library permission first
+        PHPhotoLibrary.requestAuthorization { [weak self] status in
+            DispatchQueue.main.async {
+                guard status == .authorized else {
+                    self?.captureStatus = "Error: Photo library permission required"
+                    return
+                }
+                
+                self?.hasPhotoLibraryPermission = true
+                self?.isContinuousCapture = true
+                self?.captureCount = 0
+                self?.captureStatus = "Continuous capture started"
+                
+                // Start timer to capture at regular intervals
+                self?.captureTimer = Timer.scheduledTimer(withTimeInterval: self?.captureInterval ?? 0.1, repeats: true) { [weak self] _ in
+                    self?.captureCurrentFrame()
+                }
+            }
+        }
+    }
+    
+    func stopContinuousCapture() {
+        guard isContinuousCapture else { return }
+        
+        isContinuousCapture = false
+        captureTimer?.invalidate()
+        captureTimer = nil
+        captureStatus = "Continuous capture stopped. Total: \(captureCount) frames"
+    }
     
     func captureRGBAndDepth() {
+        captureCurrentFrame()
+    }
+    
+    private func captureCurrentFrame() {
         guard let frame = currentFrame else {
-            captureStatus = "Error: Unable to get AR frame"
+            if !isContinuousCapture {
+                captureStatus = "Error: Unable to get AR frame"
+            }
             return
         }
         
-        isCapturing = true
-        captureStatus = "Capturing..."
+        // Don't block UI during continuous capture
+        if !isContinuousCapture {
+            isCapturing = true
+            captureStatus = "Capturing..."
+        }
         
         // Capture RGB image
         let pixelBuffer = frame.capturedImage
@@ -33,8 +80,10 @@ class ARManager: ObservableObject {
         let context = CIContext()
         
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
-            captureStatus = "Error: Unable to create RGB image"
-            isCapturing = false
+            if !isContinuousCapture {
+                captureStatus = "Error: Unable to create RGB image"
+                isCapturing = false
+            }
             return
         }
         
@@ -51,7 +100,7 @@ class ARManager: ObservableObject {
         }
         
         // Save RGB image and depth data
-        saveRGBImageAndDepthData(rgbImage: rgbImage, depthData: depthData, width: depthWidth, height: depthHeight)
+        saveRGBImageAndDepthData(rgbImage: rgbImage, depthData: depthData, width: depthWidth, height: depthHeight, frameNumber: captureCount)
     }
     
     private func extractDepthData(depthMap: CVPixelBuffer) -> [Float]? {
@@ -106,47 +155,65 @@ class ARManager: ObservableObject {
         return depthValues
     }
     
-    private func saveRGBImageAndDepthData(rgbImage: UIImage, depthData: [Float]?, width: Int, height: Int) {
-        // Request photo library permission for RGB image
-        PHPhotoLibrary.requestAuthorization { [weak self] status in
-            guard status == .authorized else {
-                DispatchQueue.main.async {
-                    self?.captureStatus = "Error: Photo library permission required"
-                    self?.isCapturing = false
+    private func saveRGBImageAndDepthData(rgbImage: UIImage, depthData: [Float]?, width: Int, height: Int, frameNumber: Int) {
+        // Request photo library permission for single capture
+        if !isContinuousCapture {
+            PHPhotoLibrary.requestAuthorization { [weak self] status in
+                guard status == .authorized else {
+                    DispatchQueue.main.async {
+                        self?.captureStatus = "Error: Photo library permission required"
+                        self?.isCapturing = false
+                    }
+                    return
                 }
+                self?.hasPhotoLibraryPermission = true
+                self?.performSave(rgbImage: rgbImage, depthData: depthData, width: width, height: height, frameNumber: frameNumber)
+            }
+        } else {
+            // Continuous capture - permission already checked
+            guard hasPhotoLibraryPermission else {
                 return
             }
-            
-            // Save RGB image
-            PHPhotoLibrary.shared().performChanges({
-                PHAssetChangeRequest.creationRequestForAsset(from: rgbImage)
-            }) { [weak self] success, error in
-                DispatchQueue.main.async {
-                    if success {
-                        // Save depth data to file
-                        if let depthData = depthData, width > 0, height > 0 {
-                            if self?.saveDepthDataToFile(depthData: depthData, width: width, height: height) == true {
-                                self?.captureStatus = "RGB image and depth data saved"
-                            } else {
-                                self?.captureStatus = "RGB saved, but depth data save failed"
-                            }
+            performSave(rgbImage: rgbImage, depthData: depthData, width: width, height: height, frameNumber: frameNumber)
+        }
+    }
+    
+    private func performSave(rgbImage: UIImage, depthData: [Float]?, width: Int, height: Int, frameNumber: Int) {
+        // Save RGB image
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetChangeRequest.creationRequestForAsset(from: rgbImage)
+        }) { [weak self] success, error in
+            DispatchQueue.main.async {
+                if success {
+                    // Save depth data to file
+                    if let depthData = depthData, width > 0, height > 0 {
+                        _ = self?.saveDepthDataToFile(depthData: depthData, width: width, height: height, frameNumber: frameNumber)
+                    }
+                    
+                    // Update status
+                    if let self = self {
+                        self.captureCount += 1
+                        if self.isContinuousCapture {
+                            self.captureStatus = "Capturing... Frame \(self.captureCount)"
                         } else {
-                            self?.captureStatus = "RGB saved (no depth data)"
+                            self.captureStatus = "RGB image and depth data saved"
+                            self.isCapturing = false
                         }
-                        self?.isCapturing = false
-                    } else {
-                        self?.captureStatus = "Save failed: \(error?.localizedDescription ?? "Unknown error")"
-                        self?.isCapturing = false
+                    }
+                } else {
+                    if let self = self, !self.isContinuousCapture {
+                        self.captureStatus = "Save failed: \(error?.localizedDescription ?? "Unknown error")"
+                        self.isCapturing = false
                     }
                 }
             }
         }
     }
     
-    private func saveDepthDataToFile(depthData: [Float], width: Int, height: Int) -> Bool {
+    private func saveDepthDataToFile(depthData: [Float], width: Int, height: Int, frameNumber: Int) -> Bool {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let timestamp = Int(Date().timeIntervalSince1970)
-        let fileName = "depth_data_\(timestamp).csv"
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000) // Use milliseconds for better precision
+        let fileName = "depth_data_\(frameNumber)_\(timestamp).csv"
         let fileURL = documentsPath.appendingPathComponent(fileName)
         
         // Create CSV content
