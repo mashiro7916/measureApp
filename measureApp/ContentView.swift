@@ -11,13 +11,14 @@ struct ContentView: View {
     @StateObject private var arManager = ARManager()
     
     var body: some View {
-        ZStack {
-            // AR view
-            ARViewContainer(arManager: arManager)
-                .edgesIgnoringSafeArea(.all)
-            
-            // Control buttons and status
-            VStack {
+        NavigationView {
+            ZStack {
+                // AR view
+                ARViewContainer(arManager: arManager)
+                    .edgesIgnoringSafeArea(.all)
+                
+                // Control buttons and status
+                VStack {
                 Spacer()
                 
                 // Status display
@@ -81,8 +82,26 @@ struct ContentView: View {
                 }
                 .disabled(arManager.isCapturing || arManager.isContinuousCapture)
                 .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                
+                // File manager button
+                NavigationLink(destination: FileManagerView()) {
+                    HStack {
+                        Image(systemName: "folder.fill")
+                        Text("View Saved Files")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal, 20)
                 .padding(.bottom, 30)
+                }
             }
+            .navigationBarHidden(true)
         }
     }
 }
