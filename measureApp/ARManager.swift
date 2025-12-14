@@ -39,7 +39,7 @@ class ARManager: ObservableObject {
         isContinuousCapture = false
         captureTimer?.invalidate()
         captureTimer = nil
-        captureStatus = "Continuous capture stopped. Total: \(captureCount) frames"
+        captureStatus = "Stopped. Saved \(captureCount) frames to Documents folder"
     }
     
     private func captureCurrentFrame() {
@@ -139,11 +139,11 @@ class ARManager: ObservableObject {
             guard let self = self else { return }
             self.captureCount += 1
             if rgbSaved && depthSaved {
-                self.captureStatus = "Capturing... Frame \(self.captureCount)"
+                self.captureStatus = "Frame \(self.captureCount) saved (RGB + Depth)"
             } else if rgbSaved {
-                self.captureStatus = "Capturing... Frame \(self.captureCount) (RGB only)"
+                self.captureStatus = "Frame \(self.captureCount) saved (RGB only, no depth)"
             } else {
-                self.captureStatus = "Capturing... Frame \(self.captureCount) (Error saving)"
+                self.captureStatus = "Frame \(self.captureCount) - Error saving"
             }
         }
     }

@@ -12,12 +12,12 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-                // AR view
-                ARViewContainer(arManager: arManager)
-                    .edgesIgnoringSafeArea(.all)
-                
-                // Control buttons and status
-                VStack {
+            // AR view
+            ARViewContainer(arManager: arManager)
+                .edgesIgnoringSafeArea(.all)
+            
+            // Control buttons and status
+            VStack {
                 Spacer()
                 
                 // Status display
