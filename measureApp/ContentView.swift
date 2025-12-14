@@ -11,8 +11,7 @@ struct ContentView: View {
     @StateObject private var arManager = ARManager()
     
     var body: some View {
-        NavigationView {
-            ZStack {
+        ZStack {
                 // AR view
                 ARViewContainer(arManager: arManager)
                     .edgesIgnoringSafeArea(.all)
@@ -57,51 +56,8 @@ struct ContentView: View {
                     .cornerRadius(15)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 10)
-                
-                // Single capture button
-                Button(action: {
-                    arManager.captureRGBAndDepth()
-                }) {
-                    HStack {
-                        if arManager.isCapturing {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "camera.fill")
-                        }
-                        Text(arManager.isCapturing ? "Capturing..." : "Capture Single Frame")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(arManager.isCapturing ? Color.gray : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(15)
-                }
-                .disabled(arManager.isCapturing || arManager.isContinuousCapture)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
-                
-                // File manager button
-                NavigationLink(destination: FileManagerView()) {
-                    HStack {
-                        Image(systemName: "folder.fill")
-                        Text("View Saved Files")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(15)
-                }
-                .padding(.horizontal, 20)
                 .padding(.bottom, 30)
-                }
             }
-            .navigationBarHidden(true)
         }
     }
 }

@@ -12,7 +12,6 @@ import UIKit
 import Photos
 
 class ARManager: ObservableObject {
-    @Published var isCapturing = false
     @Published var isContinuousCapture = false
     @Published var captureStatus = ""
     @Published var captureCount = 0
@@ -56,22 +55,9 @@ class ARManager: ObservableObject {
         captureStatus = "Continuous capture stopped. Total: \(captureCount) frames"
     }
     
-    func captureRGBAndDepth() {
-        captureCurrentFrame()
-    }
-    
     private func captureCurrentFrame() {
         guard let frame = currentFrame else {
-            if !isContinuousCapture {
-                captureStatus = "Error: Unable to get AR frame"
-            }
             return
-        }
-        
-        // Don't block UI during continuous capture
-        if !isContinuousCapture {
-            isCapturing = true
-            captureStatus = "Capturing..."
         }
         
         // Capture RGB image
@@ -80,10 +66,6 @@ class ARManager: ObservableObject {
         let context = CIContext()
         
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
-            if !isContinuousCapture {
-                captureStatus = "Error: Unable to create RGB image"
-                isCapturing = false
-            }
             return
         }
         
@@ -156,26 +138,11 @@ class ARManager: ObservableObject {
     }
     
     private func saveRGBImageAndDepthData(rgbImage: UIImage, depthData: [Float]?, width: Int, height: Int, frameNumber: Int) {
-        // Request photo library permission for single capture
-        if !isContinuousCapture {
-            PHPhotoLibrary.requestAuthorization { [weak self] status in
-                guard status == .authorized else {
-                    DispatchQueue.main.async {
-                        self?.captureStatus = "Error: Photo library permission required"
-                        self?.isCapturing = false
-                    }
-                    return
-                }
-                self?.hasPhotoLibraryPermission = true
-                self?.performSave(rgbImage: rgbImage, depthData: depthData, width: width, height: height, frameNumber: frameNumber)
-            }
-        } else {
-            // Continuous capture - permission already checked
-            guard hasPhotoLibraryPermission else {
-                return
-            }
-            performSave(rgbImage: rgbImage, depthData: depthData, width: width, height: height, frameNumber: frameNumber)
+        // Continuous capture - permission already checked
+        guard hasPhotoLibraryPermission else {
+            return
         }
+        performSave(rgbImage: rgbImage, depthData: depthData, width: width, height: height, frameNumber: frameNumber)
     }
     
     private func performSave(rgbImage: UIImage, depthData: [Float]?, width: Int, height: Int, frameNumber: Int) {
@@ -193,17 +160,7 @@ class ARManager: ObservableObject {
                     // Update status
                     if let self = self {
                         self.captureCount += 1
-                        if self.isContinuousCapture {
-                            self.captureStatus = "Capturing... Frame \(self.captureCount)"
-                        } else {
-                            self.captureStatus = "RGB image and depth data saved"
-                            self.isCapturing = false
-                        }
-                    }
-                } else {
-                    if let self = self, !self.isContinuousCapture {
-                        self.captureStatus = "Save failed: \(error?.localizedDescription ?? "Unknown error")"
-                        self.isCapturing = false
+                        self.captureStatus = "Capturing... Frame \(self.captureCount)"
                     }
                 }
             }
